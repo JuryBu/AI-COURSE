@@ -222,337 +222,287 @@
 </div>
 
 <script>
-function toggleAnswer(chapter, section, questionIndex, index, type = '') {
-    var answerDiv = document.getElementById('answer-' + chapter + '-' + section + (type ? '-' + type : '') + '-' + questionIndex + '-' + index);
-    if (answerDiv.style.display === "none") {
-        answerDiv.style.display = "block";
-    } else {
-        answerDiv.style.display = "none";
-    }
-}
+// 【关键修复】确保所有JS代码在DOM加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
 
-let dragElement = document.getElementById("chatWrapper");
-let header = dragElement.querySelector(".chat-header");
-let offsetX = 0, offsetY = 0, isDragging = false;
-
-header.addEventListener("mousedown", (e) => {
-    isDragging = true;
-    offsetX = e.clientX - dragElement.getBoundingClientRect().left;
-    offsetY = e.clientY - dragElement.getBoundingClientRect().top;
-    document.body.style.userSelect = 'none';
-});
-
-document.addEventListener("mousemove", (e) => {
-    if (isDragging) {
-        dragElement.style.left = `${e.clientX - offsetX}px`;
-        dragElement.style.top = `${e.clientY - offsetY}px`;
-        dragElement.style.right = "auto";
-        dragElement.style.bottom = "auto";
-    }
-});
-
-document.addEventListener("mouseup", () => {
-    isDragging = false;
-    document.body.style.userSelect = '';
-});
-
-let currentStreamController = null; // 用于中断流式请求
-
-let isGenerating = false; // 新增生成状态标记
-let chatHistory = []; // 存储对话历史
-
-// 初始化加载历史记录
-(function init() {
-    loadHistory();
-    renderHistory();
-})();
-
-// 自动调整输入框高度
-const textarea = document.getElementById('userInput');
-textarea.addEventListener('input', autoResize);
-
-function autoResize() {
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-}
-
-// 回车发送（Shift+回车换行）
-function handleKeyDown(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendRequest();
-    }
-}
-
-// 新增中断函数
-function stopGeneration() {
-    if (currentStreamController) {
-        currentStreamController.abort();
-        addMessage("生成已中断", false);
-        console.log("用户中断了生成");
-    }
-    disableInput(false);
-}
-
-// 流式输出处理
-async function sendRequest() {
-    const userInput = document.getElementById('userInput');
-    const sendButton = document.getElementById('sendButton');
-    const stopButton = document.getElementById('stopButton');
-    const message = userInput.value.trim();
-    if (!message) return;
-
-    try {
-        // 初始化中止控制器
-        currentStreamController = new AbortController();
-        isGenerating = true;
-        stopButton.disabled = false; // 启用中断按钮
-
-        // 立即清空输入框
-        userInput.value = '';
-        autoResize(); // 重置输入框高度
-        disableInput(true);
-
-        // 添加用户消息
-        addMessageToHistory({ role: 'user', content: message });
-        addMessage(message, true);
-
-        // 创建思维链和回答容器
-        const thinkingContainer = createThinkingContainer();
-        const answerContainer = createAnswerContainer(); // 改动：获取到回答容器的引用
-        let isThinking = false;
-        let fullResponse = '';
-
-        const response = await fetch("/receive", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: "deepseek-math-7b-instruct",
-                messages: chatHistory,
-                stream: true,
-                temperature: 0.7
-            }),
-            signal: currentStreamController.signal
-        });
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-
-            for (let i = 0; i < lines.length - 1; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
-
-                try {
-                    const data = JSON.parse(line.replace('data: ', ''));
-                    const delta = data.choices[0].delta.content || '';
-
-                    // 处理思维链
-                    if (delta.includes('<think>')) {
-                        isThinking = true;
-                        thinkingContainer.style.display = 'block';
-                    }
-
-                    if (isThinking) {
-                        if (delta.includes('</think>')) {
-                            isThinking = false;
-                            const cleanContent = delta.replace(/<\/?think>/g, '');
-                            thinkingContainer.innerHTML += cleanContent;
-                            thinkingContainer.innerHTML = marked.parse(thinkingContainer.innerHTML); // 对思维链也进行解析
-                            continue;
-                        }
-                        thinkingContainer.innerHTML += delta.replace(/<\/?think>/g, '');
-                        scrollToBottom();
-                        continue;
-                    }
-
-                    // 处理正式回答
-                    fullResponse += delta;
-                    // 改动：使用marked.parse()来正确处理Markdown和换行，而不是简单替换\n
-                    answerContainer.innerHTML = marked.parse(fullResponse);
-                    scrollToBottom();
-
-                } catch (e) {
-                    console.error('解析错误:', e);
-                }
-            }
-            buffer = lines[lines.length - 1];
-        }
-
-        // 保存记录
-        addMessageToHistory({ role: 'assistant', content: fullResponse });
-        saveHistory();
-
-        // 改动：在内容完全加载后，手动触发MathJax对新容器进行渲染
-        if (window.MathJax) {
-            MathJax.typesetPromise([answerContainer]).catch(function (err) {
-                console.error('MathJax rendering error:', err);
-            });
-        }
-
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            console.log('请求已被用户中止');
+    // 这个函数不需要等待DOM，但放在这里完全没问题
+    function toggleAnswer(chapter, section, questionIndex, index, type = '') {
+        var answerDiv = document.getElementById('answer-' + chapter + '-' + section + (type ? '-' + type : '') + '-' + questionIndex + '-' + index);
+        if (answerDiv.style.display === "none") {
+            answerDiv.style.display = "block";
         } else {
-            console.error('请求失败:', error);
-            addMessage(`请求失败: ${error.message}`, false);
+            answerDiv.style.display = "none";
         }
-    } finally {
-        disableInput(false);
-        isGenerating = false;
-        stopButton.disabled = true; // 禁用中断按钮
-        currentStreamController = null;
     }
-}
 
-// 修改disableInput函数
-function disableInput(disabled) {
-    const userInput = document.getElementById('userInput');
-    const sendButton = document.getElementById('sendButton');
-    const stopButton = document.getElementById('stopButton');
+    // --- 聊天窗口拖动逻辑 ---
+    let dragElement = document.getElementById("chatWrapper");
+    let header = dragElement.querySelector(".chat-header");
+    let offsetX = 0, offsetY = 0, isDragging = false;
 
-    userInput.disabled = disabled;
-    sendButton.disabled = disabled;
-    stopButton.disabled = !disabled; // 生成时启用中断按钮
+    header.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        offsetX = e.clientX - dragElement.getBoundingClientRect().left;
+        offsetY = e.clientY - dragElement.getBoundingClientRect().top;
+        document.body.style.userSelect = 'none';
+    });
 
-    if (!disabled) {
-        userInput.focus();
-        stopButton.disabled = true;
-    }
-}
-
-// 创建思维链容器
-function createThinkingContainer() {
-    const container = document.getElementById('chatContainer');
-    const thinkingDiv = document.createElement('div');
-    thinkingDiv.className = 'thinking-stream';
-    thinkingDiv.style.display = 'none'; // 默认隐藏
-    container.appendChild(thinkingDiv);
-    return thinkingDiv;
-}
-
-// 创建回答容器
-function createAnswerContainer() {
-    const container = document.getElementById('chatContainer');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message bot-message';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble';
-    messageDiv.appendChild(bubble);
-    container.appendChild(messageDiv);
-    return bubble;
-}
-
-// 历史记录处理
-function addMessageToHistory(message) {
-    chatHistory.push(message);
-    if (chatHistory.length > 50) chatHistory.shift(); // 保留最近50条
-}
-
-function saveHistory() {
-    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
-}
-
-function loadHistory() {
-    const saved = localStorage.getItem('chatHistory');
-    if (saved) chatHistory = JSON.parse(saved);
-}
-
-function clearHistory() {
-    localStorage.removeItem('chatHistory');
-    chatHistory = [];
-    renderHistory();
-}
-
-function exportHistory() {
-    const blob = new Blob([JSON.stringify(chatHistory, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chat_history_${Date.now()}.json`;
-    a.click();
-}
-
-// 渲染历史记录
-function renderHistory() {
-    const container = document.getElementById('chatContainer');
-    container.innerHTML = '';
-    const promises = [];
-    chatHistory.forEach(msg => {
-        if (msg.role === 'user') {
-            addMessage(msg.content, true);
-        } else {
-            const botMessageDiv = addMessage(msg.content, false);
-            // 对于历史记录中的AI消息，也要触发渲染
-            if (window.MathJax) {
-                 promises.push(MathJax.typesetPromise([botMessageDiv]));
-            }
+    document.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+            dragElement.style.left = `${e.clientX - offsetX}px`;
+            dragElement.style.top = `${e.clientY - offsetY}px`;
+            dragElement.style.right = "auto";
+            dragElement.style.bottom = "auto";
         }
     });
 
-    // 等待所有历史记录渲染完成
-    Promise.all(promises).then(() => {
-        scrollToBottom();
-    }).catch(err => console.error("Error rendering history:", err));
-}
+    document.addEventListener("mouseup", () => {
+        isDragging = false;
+        document.body.style.userSelect = '';
+    });
 
-// 公共功能
-function disableInput(disabled) {
-    const userInput = document.getElementById('userInput');
-    const sendButton = document.getElementById('sendButton');
-    userInput.disabled = disabled;
-    sendButton.disabled = disabled;
-    if (!disabled) userInput.focus();
-}
+    // --- AI聊天核心逻辑 ---
+    let currentStreamController = null;
+    let isGenerating = false;
+    let chatHistory = [];
 
-function addMessage(content, isUser) {
-    const container = document.getElementById('chatContainer');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+    // 初始化：现在可以安全地访问DOM了
+    loadHistory();
+    renderHistory();
 
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble';
+    const textarea = document.getElementById('userInput');
+    textarea.addEventListener('input', autoResize);
+    textarea.addEventListener('keydown', handleKeyDown); // 绑定回车发送事件
 
-    // 使用 marked.parse 来处理所有消息内容，确保一致性
-    bubble.innerHTML = marked.parse(content);
-
-    messageDiv.appendChild(bubble);
-    container.appendChild(messageDiv);
-    scrollToBottom();
-
-    // 返回 bubble 元素，以便于渲染历史记录时调用 typesetPromise
-    return bubble;
-}
-
-function scrollToBottom() {
-    const container = document.getElementById('chatContainer');
-    container.scrollTop = container.scrollHeight;
-}
-
-function toggleChat() {
-    const wrapper = document.getElementById("chatWrapper");
-    const toggleBtn = wrapper.querySelector(".chat-toggle");
-    const footer = wrapper.querySelector(".chat-footer");
-
-    wrapper.classList.toggle("collapsed");
-
-    // 切换箭头 ▼ ↔ ▲
-    if (wrapper.classList.contains("collapsed")) {
-        toggleBtn.textContent = "▲"; // 显示为收起箭头
-        footer.style.display = "none"; // 收起时隐藏小字
-    } else {
-        toggleBtn.textContent = "▼"; // 显示为展开箭头
-        footer.style.display = "block"; // 展开时显示小字
+    function autoResize() {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
     }
-}
 
+    function handleKeyDown(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendRequest();
+        }
+    }
+
+    window.stopGeneration = function() { // 暴露到全局，让onclick可以调用
+        if (currentStreamController) {
+            currentStreamController.abort();
+            addMessage("生成已中断", false);
+            console.log("用户中断了生成");
+        }
+        disableInput(false);
+    }
+
+    window.sendRequest = async function() { // 暴露到全局
+        const userInput = document.getElementById('userInput');
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        try {
+            currentStreamController = new AbortController();
+            isGenerating = true;
+            disableInput(true);
+
+            userInput.value = '';
+            autoResize();
+
+            addMessageToHistory({ role: 'user', content: message });
+            addMessage(message, true);
+
+            const thinkingContainer = createThinkingContainer();
+            const answerContainer = createAnswerContainer();
+            let isThinking = false;
+            let fullResponse = '';
+
+            const response = await fetch("/receive", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "deepseek-math-7b-instruct",
+                    messages: chatHistory,
+                    stream: true,
+                    temperature: 0.7
+                }),
+                signal: currentStreamController.signal
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+
+                for (let i = 0; i < lines.length - 1; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    try {
+                        const data = JSON.parse(line.replace(/^data: /, ''));
+                        const delta = data.choices[0].delta.content || '';
+
+                        if (delta.includes('<think>')) {
+                            isThinking = true;
+                            thinkingContainer.style.display = 'block';
+                        }
+                        if (isThinking) {
+                            if (delta.includes('</think>')) {
+                                isThinking = false;
+                                const cleanContent = delta.replace(/<\/?think>/g, '');
+                                thinkingContainer.innerHTML += cleanContent;
+                                thinkingContainer.innerHTML = marked.parse(thinkingContainer.innerHTML);
+                                continue;
+                            }
+                            thinkingContainer.innerHTML += delta.replace(/<\/?think>/g, '');
+                            scrollToBottom();
+                            continue;
+                        }
+
+                        fullResponse += delta;
+                        answerContainer.innerHTML = marked.parse(fullResponse);
+                        scrollToBottom();
+
+                    } catch (e) {
+                        console.error('解析流式数据错误:', e, '原始数据:', line);
+                    }
+                }
+                buffer = lines[lines.length - 1];
+            }
+
+            addMessageToHistory({ role: 'assistant', content: fullResponse });
+            saveHistory();
+
+            if (window.MathJax) {
+                MathJax.typesetPromise([answerContainer]).catch(err => console.error('MathJax渲染错误:', err));
+            }
+
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('请求被用户中止');
+            } else {
+                console.error('请求失败:', error);
+                addMessage(`请求失败: ${error.message}`, false);
+            }
+        } finally {
+            disableInput(false);
+            isGenerating = false;
+            currentStreamController = null;
+        }
+    }
+
+    function disableInput(disabled) {
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const stopButton = document.getElementById('stopButton');
+        userInput.disabled = disabled;
+        sendButton.disabled = disabled;
+        stopButton.disabled = !disabled;
+        if (!disabled) userInput.focus();
+    }
+
+    function createThinkingContainer() {
+        const container = document.getElementById('chatContainer');
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.className = 'thinking-stream';
+        thinkingDiv.style.display = 'none';
+        container.appendChild(thinkingDiv);
+        return thinkingDiv;
+    }
+
+    function createAnswerContainer() {
+        const container = document.getElementById('chatContainer');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot-message';
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        messageDiv.appendChild(bubble);
+        container.appendChild(messageDiv);
+        return bubble;
+    }
+
+    function addMessageToHistory(message) {
+        chatHistory.push(message);
+        if (chatHistory.length > 50) chatHistory.shift();
+    }
+
+    function saveHistory() {
+        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+    }
+
+    function loadHistory() {
+        const saved = localStorage.getItem('chatHistory');
+        if (saved) chatHistory = JSON.parse(saved);
+    }
+
+    window.clearHistory = function() { // 暴露到全局
+        localStorage.removeItem('chatHistory');
+        chatHistory = [];
+        renderHistory();
+    }
+
+    window.exportHistory = function() { // 暴露到全局
+        const blob = new Blob([JSON.stringify(chatHistory, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_history_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('chatContainer');
+        container.innerHTML = '';
+        const promises = [];
+        chatHistory.forEach(msg => {
+            const bubble = addMessage(msg.content, msg.role === 'user');
+            if (msg.role !== 'user' && window.MathJax) {
+                promises.push(MathJax.typesetPromise([bubble]));
+            }
+        });
+        Promise.all(promises).then(() => scrollToBottom()).catch(err => console.error("历史记录渲染错误:", err));
+    }
+
+    function addMessage(content, isUser) {
+        const container = document.getElementById('chatContainer');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.innerHTML = marked.parse(content);
+        messageDiv.appendChild(bubble);
+        container.appendChild(messageDiv);
+        scrollToBottom();
+        return bubble; // 返回bubble用于MathJax渲染
+    }
+
+    function scrollToBottom() {
+        const container = document.getElementById('chatContainer');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    window.toggleChat = function() { // 暴露到全局
+        const wrapper = document.getElementById("chatWrapper");
+        const toggleBtn = wrapper.querySelector(".chat-toggle");
+        const footer = wrapper.querySelector(".chat-footer");
+        wrapper.classList.toggle("collapsed");
+        if (wrapper.classList.contains("collapsed")) {
+            toggleBtn.textContent = "▲";
+            footer.style.display = "none";
+        } else {
+            toggleBtn.textContent = "▼";
+            footer.style.display = "block";
+        }
+    }
+
+    // 将原来全局的onclick函数也暴露出来
+    window.toggleAnswer = toggleAnswer;
+});
 </script>
 {% endblock %}
