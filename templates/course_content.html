@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}课程内容{% endblock %}
+{% block page_title %}课程内容{% endblock %}
+
+{% block content %}
+<h2>已上传资源</h2>
+
+<div class="menu">
+    <a href="{{ url_for('upload_file') }}" class="btn-upload">上传资源</a>
+</div>
+
+<div class="chapters">
+    {% for chapter_name, sections in chapters.items() %}
+    <details class="chapter">
+        <summary>
+            <h3>{{ chapter_name }}</h3>
+        </summary>
+        <div class="sections">
+            {% for section_name, section_data in sections.items() %}
+            <details class="section">
+                <summary>
+                    <h4>{{ section_name }}</h4>
+                </summary>
+                {# 视频部分 #}
+                {% if section_data.videos %}
+                <div class="resource-category">
+                    <ul>
+                        {% for file in section_data.videos %}
+                        <li>
+                            <div class="video-resource">
+                                <h6>{{ file|replace('.mp4', '') }}</h6>
+                                <video width="500" controls>
+                                    <source src="{{ url_for('serve_video', filename=chapter_name + '/' + section_name + '/videos/' + file) }}" type="video/mp4">
+                                    您的浏览器不支持视频标签。
+                                </video>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% set j = 0 %}
+
+                <div class="classroom-exercises">
+                    <h6>课堂练习</h6>
+                    {% if section_data.classroom_exercises %}
+                    <ul>
+                        {% for file in section_data.classroom_exercises %}
+                        <li>
+                            {% set index = loop.index %}
+                            <strong>题目 {{ index }}:</strong><br>
+                            {% set ques = read_ques(chapter_name, section_name, 'classroom_exercises', index) %}
+                            {% if ques %}
+                            {% if ques.image %}
+                                <img src="{{ url_for('static', filename=chapter_name + '/' + section_name + '/classroom_exercises/' + ques.image) }}" alt="习题图片" width="500"><br>
+                            {% endif %}
+                            {% if ques.text %}
+                                {{ ques.text }}<br>
+                            {% endif %}
+                            {% else %}
+                            <p>暂未设置题目</p>
+                            {% endif %}
+
+                            <button class="btn-action" onclick="toggleAnswer('{{ chapter_name }}', '{{ section_name }}', {{ index }}, {{ j }})">参考答案</button>
+
+                            <div class="answer" id="answer-{{ chapter_name }}-{{ section_name }}-{{ index }}-{{ j }}" style="display:none;">
+                                {% set answer = read_answer(chapter_name, section_name, index) %}
+                                {% if answer %}
+                                <strong>题目{{ index }}答案:</strong><br>
+                                {% if answer['image'] %}
+                                <img src="{{ url_for('static', filename=chapter_name + '/' + section_name + '/answers/' + answer['image']) }}" alt="参考答案图片" width="400">
+                                {% endif %}
+                                {% if answer['text'] %}
+                                <p>{{ answer['text'] }}</p>
+                                {% endif %}
+                                {% else %}
+                                <strong>本题暂未设置答案<strong><br>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p>本节暂未设置课堂练习</p>
+                    {% endif %}
+                </div>
+
+                {% set count = section_data.classroom_exercises|length %}
+                {% set j = j + count %}
+
+                <div class="homework">
+                    <h6>课后习题</h6>
+                    {% if section_data.homework %}
+                    <ul>
+                        {% for file in section_data.homework %}
+                        <li>
+                            {% set index = loop.index %}
+                            <strong>题目 {{ index }}:</strong><br>
+                            {% set ques = read_ques(chapter_name, section_name, 'homework', index) %}
+                            {% if ques %}
+                            {% if ques.image %}
+                                <img src="{{ url_for('static', filename=chapter_name + '/' + section_name + '/homework/' + ques.image) }}" alt="习题图片" width="500"><br>
+                            {% endif %}
+                            {% if ques.text %}
+                                {{ ques.text }}<br>
+                            {% endif %}
+                            {% else %}
+                            <p>暂未设置题目</p>
+                            {% endif %}
+
+                            <button class="btn-action" onclick="toggleAnswer('{{ chapter_name }}', '{{ section_name }}', {{ index }}, {{ j }})">参考答案</button>
+
+                            <div class="answer" id="answer-{{ chapter_name }}-{{ section_name }}-{{ index }}-{{ j }}" style="display:none;">
+                                {% set answer = read_answer(chapter_name, section_name, index + j) %}
+                                {% if answer %}
+                                <strong>题目{{ index }}答案:</strong><br>
+                                {% if answer['image'] %}
+                                <img src="{{ url_for('static', filename=chapter_name + '/' + section_name + '/answers/' + answer['image']) }}" alt="参考答案图片" width="400">
+                                {% endif %}
+                                {% if answer['text'] %}
+                                <p>{{ answer['text'] }}</p>
+                                {% endif %}
+                                {% else %}
+                                <strong>本题暂未设置答案<strong><br>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p>本节暂未设置课后习题</p>
+                    {% endif %}
+                </div>
+
+                <div class="discussion-exercises">
+                    <h6>讨论区习题</h6>
+                    {% if section_data.discussion_exercises %}
+                    <ul>
+                        {% for file in section_data.discussion_exercises %}
+                        <li>
+                            {% set index = loop.index %}
+                            <strong>题目 {{ index }}:</strong><br>
+                            {% set ques = read_ques(chapter_name, section_name, 'discussion_exercises', index) %}
+                            {% if ques %}
+                            {% if ques.image %}
+                                <img src="{{ url_for('static', filename=chapter_name + '/' + section_name + '/discussion_exercises/' + ques.image) }}" alt="习题图片" width="500"><br>
+                            {% endif %}
+                            {% if ques.text %}
+                                {{ ques.text }}<br>
+                            {% endif %}
+                            {% else %}
+                            <p>暂未设置题目</p>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p>本节暂未设置讨论区习题</p>
+                    {% endif %}
+                </div>
+
+                <div class="discussion">
+                    <h6>讨论区</h6>
+                    <form method="POST" action="{{ url_for('submit_discussion', chapter_name=chapter_name, section_name=section_name) }}">
+                        <textarea name="discussion_content" rows="4" cols="50" placeholder="请输入讨论内容..."></textarea><br>
+                        <button type="submit" class="btn-action">提交讨论</button>
+                    </form>
+
+                    {% if discussions[section_name] %}
+                    <div class="discussion-content">
+                        <h4>已有讨论：</h4>
+                        <ul>
+                            {% for discussion in discussions[section_name] %}
+                            <li>
+                                <strong class="discussion-index">{{ loop.index }}. </strong>
+                                <span class="discussion-text">{{ discussion }}</span>
+                                <hr>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% else %}
+                    <p>暂无讨论</p>
+                    {% endif %}
+                </div>
+
+                <!--AI 聊天助手 -->
+                <div class="chat-wrapper" id="chatWrapper">
+                    <div class="chat-header" onclick="toggleChat()">
+                        <span>在线AI小助手</span>
+                        <button class="chat-toggle">▼</button>
+                    </div>
+
+                    <div class="chat-container" id="chatContainer"></div>
+
+                    <div class="input-container" id="chatControls">
+                        <div class="input-box">
+                            <textarea id="userInput" placeholder="输入您的问题..." rows="2"></textarea>
+                            <div class="chat-controls">
+                                <button id="sendButton" onclick="sendRequest()">发送</button>
+                                <button onclick="exportHistory()">导出</button>
+                                <button onclick="clearHistory()">清空</button>
+                                <button id="stopButton" onclick="stopGeneration()" disabled>中断</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-footer">
+                       使用模型 deepseek-math-7b，AI 生成内容仅供参考，不绝对正确。
+                    </div>
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+    </details>
+    {% endfor %}
+</div>
+
+<div class="menu">
+    <a href="{{ url_for('index') }}">返回首页</a>
+</div>
+
+<script>
+function toggleAnswer(chapter, section, questionIndex, index, type = '') {
+    var answerDiv = document.getElementById('answer-' + chapter + '-' + section + (type ? '-' + type : '') + '-' + questionIndex + '-' + index);
+    if (answerDiv.style.display === "none") {
+        answerDiv.style.display = "block";
+    } else {
+        answerDiv.style.display = "none";
+    }
+}
+
+let dragElement = document.getElementById("chatWrapper");
+let header = dragElement.querySelector(".chat-header");
+let offsetX = 0, offsetY = 0, isDragging = false;
+
+header.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    offsetX = e.clientX - dragElement.getBoundingClientRect().left;
+    offsetY = e.clientY - dragElement.getBoundingClientRect().top;
+    document.body.style.userSelect = 'none';
+});
+
+document.addEventListener("mousemove", (e) => {
+    if (isDragging) {
+        dragElement.style.left = `${e.clientX - offsetX}px`;
+        dragElement.style.top = `${e.clientY - offsetY}px`;
+        dragElement.style.right = "auto";
+        dragElement.style.bottom = "auto";
+    }
+});
+
+document.addEventListener("mouseup", () => {
+    isDragging = false;
+    document.body.style.userSelect = '';
+});
+
+let currentStreamController = null; // 用于中断流式请求
+
+let isGenerating = false; // 新增生成状态标记
+let chatHistory = []; // 存储对话历史
+
+// 初始化加载历史记录
+(function init() {
+    loadHistory();
+    renderHistory();
+})();
+
+// 自动调整输入框高度
+const textarea = document.getElementById('userInput');
+textarea.addEventListener('input', autoResize);
+
+function autoResize() {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+// 回车发送（Shift+回车换行）
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendRequest();
+    }
+}
+
+// 新增中断函数
+function stopGeneration() {
+    if (currentStreamController) {
+        currentStreamController.abort();
+        addMessage("生成已中断", false);
+        console.log("用户中断了生成");
+    }
+    disableInput(false);
+}
+
+// 流式输出处理
+async function sendRequest() {
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const stopButton = document.getElementById('stopButton');
+    const message = userInput.value.trim();
+    if (!message) return;
+
+    try {
+        // 初始化中止控制器
+        currentStreamController = new AbortController();
+        isGenerating = true;
+        stopButton.disabled = false; // 启用中断按钮
+
+        // 立即清空输入框
+        userInput.value = '';
+        autoResize(); // 重置输入框高度
+        disableInput(true);
+
+        // 添加用户消息
+        addMessageToHistory({ role: 'user', content: message });
+        addMessage(message, true);
+
+        // 创建思维链和回答容器
+        const thinkingContainer = createThinkingContainer();
+        const answerContainer = createAnswerContainer(); // 改动：获取到回答容器的引用
+        let isThinking = false;
+        let fullResponse = '';
+
+        const response = await fetch("/receive", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: "deepseek-math-7b-instruct",
+                messages: chatHistory,
+                stream: true,
+                temperature: 0.7
+            }),
+            signal: currentStreamController.signal
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+
+            for (let i = 0; i < lines.length - 1; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                try {
+                    const data = JSON.parse(line.replace('data: ', ''));
+                    const delta = data.choices[0].delta.content || '';
+
+                    // 处理思维链
+                    if (delta.includes('<think>')) {
+                        isThinking = true;
+                        thinkingContainer.style.display = 'block';
+                    }
+
+                    if (isThinking) {
+                        if (delta.includes('</think>')) {
+                            isThinking = false;
+                            const cleanContent = delta.replace(/<\/?think>/g, '');
+                            thinkingContainer.innerHTML += cleanContent;
+                            thinkingContainer.innerHTML = marked.parse(thinkingContainer.innerHTML); // 对思维链也进行解析
+                            continue;
+                        }
+                        thinkingContainer.innerHTML += delta.replace(/<\/?think>/g, '');
+                        scrollToBottom();
+                        continue;
+                    }
+
+                    // 处理正式回答
+                    fullResponse += delta;
+                    // 改动：使用marked.parse()来正确处理Markdown和换行，而不是简单替换\n
+                    answerContainer.innerHTML = marked.parse(fullResponse);
+                    scrollToBottom();
+
+                } catch (e) {
+                    console.error('解析错误:', e);
+                }
+            }
+            buffer = lines[lines.length - 1];
+        }
+
+        // 保存记录
+        addMessageToHistory({ role: 'assistant', content: fullResponse });
+        saveHistory();
+
+        // 改动：在内容完全加载后，手动触发MathJax对新容器进行渲染
+        if (window.MathJax) {
+            MathJax.typesetPromise([answerContainer]).catch(function (err) {
+                console.error('MathJax rendering error:', err);
+            });
+        }
+
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('请求已被用户中止');
+        } else {
+            console.error('请求失败:', error);
+            addMessage(`请求失败: ${error.message}`, false);
+        }
+    } finally {
+        disableInput(false);
+        isGenerating = false;
+        stopButton.disabled = true; // 禁用中断按钮
+        currentStreamController = null;
+    }
+}
+
+// 修改disableInput函数
+function disableInput(disabled) {
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const stopButton = document.getElementById('stopButton');
+
+    userInput.disabled = disabled;
+    sendButton.disabled = disabled;
+    stopButton.disabled = !disabled; // 生成时启用中断按钮
+
+    if (!disabled) {
+        userInput.focus();
+        stopButton.disabled = true;
+    }
+}
+
+// 创建思维链容器
+function createThinkingContainer() {
+    const container = document.getElementById('chatContainer');
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'thinking-stream';
+    thinkingDiv.style.display = 'none'; // 默认隐藏
+    container.appendChild(thinkingDiv);
+    return thinkingDiv;
+}
+
+// 创建回答容器
+function createAnswerContainer() {
+    const container = document.getElementById('chatContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message bot-message';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    messageDiv.appendChild(bubble);
+    container.appendChild(messageDiv);
+    return bubble;
+}
+
+// 历史记录处理
+function addMessageToHistory(message) {
+    chatHistory.push(message);
+    if (chatHistory.length > 50) chatHistory.shift(); // 保留最近50条
+}
+
+function saveHistory() {
+    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+}
+
+function loadHistory() {
+    const saved = localStorage.getItem('chatHistory');
+    if (saved) chatHistory = JSON.parse(saved);
+}
+
+function clearHistory() {
+    localStorage.removeItem('chatHistory');
+    chatHistory = [];
+    renderHistory();
+}
+
+function exportHistory() {
+    const blob = new Blob([JSON.stringify(chatHistory, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat_history_${Date.now()}.json`;
+    a.click();
+}
+
+// 渲染历史记录
+function renderHistory() {
+    const container = document.getElementById('chatContainer');
+    container.innerHTML = '';
+    const promises = [];
+    chatHistory.forEach(msg => {
+        if (msg.role === 'user') {
+            addMessage(msg.content, true);
+        } else {
+            const botMessageDiv = addMessage(msg.content, false);
+            // 对于历史记录中的AI消息，也要触发渲染
+            if (window.MathJax) {
+                 promises.push(MathJax.typesetPromise([botMessageDiv]));
+            }
+        }
+    });
+
+    // 等待所有历史记录渲染完成
+    Promise.all(promises).then(() => {
+        scrollToBottom();
+    }).catch(err => console.error("Error rendering history:", err));
+}
+
+// 公共功能
+function disableInput(disabled) {
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    userInput.disabled = disabled;
+    sendButton.disabled = disabled;
+    if (!disabled) userInput.focus();
+}
+
+function addMessage(content, isUser) {
+    const container = document.getElementById('chatContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+
+    // 使用 marked.parse 来处理所有消息内容，确保一致性
+    bubble.innerHTML = marked.parse(content);
+
+    messageDiv.appendChild(bubble);
+    container.appendChild(messageDiv);
+    scrollToBottom();
+
+    // 返回 bubble 元素，以便于渲染历史记录时调用 typesetPromise
+    return bubble;
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('chatContainer');
+    container.scrollTop = container.scrollHeight;
+}
+
+function toggleChat() {
+    const wrapper = document.getElementById("chatWrapper");
+    const toggleBtn = wrapper.querySelector(".chat-toggle");
+    const footer = wrapper.querySelector(".chat-footer");
+
+    wrapper.classList.toggle("collapsed");
+
+    // 切换箭头 ▼ ↔ ▲
+    if (wrapper.classList.contains("collapsed")) {
+        toggleBtn.textContent = "▲"; // 显示为收起箭头
+        footer.style.display = "none"; // 收起时隐藏小字
+    } else {
+        toggleBtn.textContent = "▼"; // 显示为展开箭头
+        footer.style.display = "block"; // 展开时显示小字
+    }
+}
+
+</script>
+{% endblock %}

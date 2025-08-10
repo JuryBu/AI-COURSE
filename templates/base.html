@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}数学课程资源库{% endblock %}</title>
+    <style>
+        body {
+            background-image: url('{{ url_for('static', filename='3.png') }}');
+            background-position: center;
+            color: black;
+            font-family: "KaiTi", "楷体", "楷体_GB2312", serif; /* 修改为楷体 */
+            margin: 0;
+            padding: 0;
+            height: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            text-align: center;
+            padding: 50px;
+        }
+
+        h1 {
+            font-size: 4em;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        h2 {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #800080;
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            font-size: 2.0em;
+            font-weight: bold;
+            color: #0047AB;
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+            margin-bottom: 10px;
+        }
+
+        h4 {
+            font-size: 1.5em;
+            color: #000000;
+        }
+
+        .menu {
+            margin-top: 30px;
+        }
+
+        .menu a {
+            display: inline-block;
+            margin: 10px 20px;
+            padding: 15px 30px;
+            font-size: 1.5em;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border-radius: 5px;
+            text-decoration: none;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
+        }
+
+        .menu a:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.9);
+        }
+
+        .file-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .chapters {
+            margin-top: 20px;
+            padding: 0;
+        }
+
+        .chapter {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: transparent;
+        }
+
+        .chapter summary {
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px 10px;
+            background-color: transparent;
+            border-radius: 3px;
+        }
+
+        .cover-image {
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .chapter-actions {
+            margin-top: 10px;
+        }
+
+        .btn-action {
+            display: inline-block;
+            margin-right: 10px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            transition: background-color 0.3s;
+        }
+
+        .btn-action:hover {
+            background-color: #0056b3;
+        }
+
+        .menu {
+            margin-top: 20px;
+        }
+
+        .btn-upload {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .btn-upload:hover {
+            background-color: #218838;
+        }
+
+        .discussion-content {
+            text-align: left;
+        }
+
+        .discussion-index {
+            color: red;
+            font-weight: bold;
+        }
+
+        .discussion-text {
+            color: black;
+            font-family: "KaiTi", "楷体", "楷体_GB2312", serif; /* 修改为楷体 */
+            font-size: 16px;
+        }
+
+        h6 {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: black;
+        }
+
+        :root {
+            --bg-color: #f0f4f8;
+            --user-bg: #ffffff;
+            --bot-bg: #e3e8ed;
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+        }
+
+        .chat-wrapper {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 380px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            resize: both;
+            overflow: auto;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e5e7eb;
+        }
+
+        .chat-wrapper.collapsed {
+            height: 60px !important;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .chat-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            background: var(--bg-color);
+        }
+
+        .chat-controls {
+            padding: 12px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .user-message {
+            flex-direction: row-reverse;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            line-height: 1.5;
+            color: #000000;
+            font-size: 14px;
+        }
+
+        .user-message .message-bubble {
+            background: var(--user-bg);
+            border: 1px solid #e5e7eb;
+        }
+
+        .bot-message .message-bubble {
+            background: var(--bot-bg);
+        }
+
+        #userInput {
+            width: 90%;
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            resize: vertical;
+            min-height: 40px;
+            margin-bottom: 8px;
+        }
+
+        .chat-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .chat-btn {
+            padding: 6px 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            background: var(--primary-color);
+            color: white;
+            transition: opacity 0.2s;
+        }
+
+        .chat-btn:hover {
+            opacity: 0.9;
+        }
+
+        #stopButton {
+            background: #dc2626;
+        }
+
+        .chat-footer {
+            font-size: 0.8em;
+            color: #888;
+            padding: 8px;
+            text-align: center;
+            background: #f8f9fa;
+            border-top: 1px solid #e5e7eb;
+            display: block;
+            transition: opacity 0.3s ease;
+        }
+
+        .chat-wrapper.collapsed .chat-footer {
+            display: none;
+        }
+
+        .upload-container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .upload-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .upload-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .upload-form select,
+        .upload-form input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .form-actions {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .btn-submit {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-back {
+            display: inline-block;
+            margin-left: 15px;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .kaiti-title {
+            font-family: "KaiTi", "楷体", "楷体_GB2312", serif; /* 修改为楷体 */
+        }
+    </style>
+
+    <!-- 1. 新增：引入marked.js 用于解析Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- 2. MathJax 脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+    <script type="text/javascript">
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)'], ['**', '**']]
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="kaiti-title">{% block page_title %}数学课程资源库{% endblock %}</h1>
+
+        <div class="menu">
+            {% block menu %}{% endblock %}
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

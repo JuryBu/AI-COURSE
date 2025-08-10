@@ -1,0 +1,57 @@
+<!-- upload.html -->
+{% extends "base.html" %}
+
+{% block title %}上传资源{% endblock %}
+{% block page_title %}上传资源{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <h2>上传资源</h2>
+    <form method="POST" enctype="multipart/form-data" class="upload-form">
+        <!-- 文件选择 -->
+        <div class="form-group">
+            <label for="file">选择文件：</label>
+            <input type="file" id="file" name="file" required>
+        </div>
+
+        <!-- 章节选择 -->
+        <div class="form-group">
+            <label for="chapter">选择章节：</label>
+            <select id="chapter" name="chapter" required>
+                <option value="第一章">第一章</option>
+                <option value="第二章">第二章</option>
+                <option value="第三章">第三章</option>
+                <!-- 可动态添加更多章节 -->
+            </select>
+        </div>
+
+        <!-- 小节选择 -->
+        <div class="form-group">
+            <label for="section">选择小节：</label>
+            <select id="section" name="section" required>
+                <option value="小节1">第一节</option>
+                <option value="小节2">第二节</option>
+                <option value="小节3">第三节</option>
+                <!-- 可动态添加更多小节 -->
+            </select>
+        </div>
+
+        <!-- 新增：资源类型选择 -->
+        <div class="form-group">
+            <label for="resource_type">资源类型：</label>
+            <select id="resource_type" name="resource_type" required>
+                <option value="videos">视频</option>
+                <option value="classroom_exercises">课堂练习</option>
+                <option value="homework">课后习题</option>
+                <option value="discussion_exercises">讨论区习题</option>
+            </select>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="form-actions">
+            <button type="submit" class="btn-submit">上传</button>
+            <a href="{{ url_for('course_content') }}" class="btn-back">返回资源列表</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

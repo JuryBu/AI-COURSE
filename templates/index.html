@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="menu">
+        <a href="{{ url_for('course_description') }}">课程简介</a>
+        <a href="{{ url_for('course_content') }}">课程内容</a>
+        <a href="{{ url_for('additional_resources') }}">额外教学资源</a>
+        <a href="{{ url_for('teaching_staff') }}">参与教学人员</a>
+    </div>
+{% endblock %}
