@@ -10,15 +10,16 @@ app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # 配置参数
-LM_STUDIO_URL = "http://127.0.0.1:1234/v1/chat/completions"
+LM_STUDIO_URL = "http://127.0.0.1:11434/api/chat"
+
 
 # 负载均衡配置
 MODEL_INSTANCES = {
     "deepseek-math-7b-instruct": [
         {
             "name": "deepseek-math-7b-instruct",
-            "host": "http://127.0.0.1:1234",
-            "endpoint": "/v1/chat/completions",
+            "host": "http://127.0.0.1:11434",
+            "endpoint": "/api/chat",
             "active_requests": 0,
             "response_times": deque(maxlen=10)
         }
@@ -378,14 +379,13 @@ def receive_data():
 
         try:
             with requests.post(
-                LM_STUDIO_URL,
-                json={
-                    "model": selected_instance,
-                    "messages": messages,
-                    "stream": True,
-                    "temperature": temperature
-                },
-                stream=True
+                    LM_STUDIO_URL,
+                    json={
+                        "model": "deepseek-math", 
+                        "messages": messages,
+                        "stream": True
+                    },
+                    stream=True
             ) as r:
                 for chunk in r.iter_content(chunk_size=None):
                     if chunk:
