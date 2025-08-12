@@ -188,7 +188,8 @@
 
                 <!--AI 聊天助手 -->
                 <div class="chat-wrapper" id="chatWrapper">
-                    <div class="chat-header" onclick="toggleChat()">
+                    <!-- 【修复】为header添加id，并移除onclick -->
+                    <div class="chat-header" id="chatHeader">
                         <span>在线AI小助手</span>
                         <button class="chat-toggle">▼</button>
                     </div>
@@ -199,10 +200,11 @@
                         <div class="input-box">
                             <textarea id="userInput" placeholder="输入您的问题..." rows="2"></textarea>
                             <div class="chat-controls">
-                                <button id="sendButton" onclick="sendRequest()">发送</button>
-                                <button onclick="exportHistory()">导出</button>
-                                <button onclick="clearHistory()">清空</button>
-                                <button id="stopButton" onclick="stopGeneration()" disabled>中断</button>
+                                <!-- 【修复】移除所有按钮的onclick属性，并为导出和清空按钮添加ID -->
+                                <button id="sendButton">发送</button>
+                                <button id="exportButton">导出</button>
+                                <button id="clearButton">清空</button>
+                                <button id="stopButton" disabled>中断</button>
                             </div>
                         </div>
                     </div>
@@ -222,25 +224,28 @@
 </div>
 
 <script>
-// 【关键修复】确保所有JS代码在DOM加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
 
-    // 这个函数不需要等待DOM，但放在这里完全没问题
-    function toggleAnswer(chapter, section, questionIndex, index, type = '') {
-        var answerDiv = document.getElementById('answer-' + chapter + '-' + section + (type ? '-' + type : '') + '-' + questionIndex + '-' + index);
+    // 这个函数由Jinja循环生成，数量不确定，保留在全局作用域是最简单的处理方式
+    function toggleAnswer(chapter, section, questionIndex, index) {
+        var answerDiv = document.getElementById('answer-' + chapter + '-' + section + '-' + questionIndex + '-' + index);
         if (answerDiv.style.display === "none") {
             answerDiv.style.display = "block";
         } else {
             answerDiv.style.display = "none";
         }
     }
+    window.toggleAnswer = toggleAnswer;
+
 
     // --- 聊天窗口拖动逻辑 ---
-    let dragElement = document.getElementById("chatWrapper");
-    let header = dragElement.querySelector(".chat-header");
+    const dragElement = document.getElementById("chatWrapper");
+    const header = document.getElementById("chatHeader"); // 使用ID获取
     let offsetX = 0, offsetY = 0, isDragging = false;
 
     header.addEventListener("mousedown", (e) => {
+        // 防止点击按钮时也触发拖动
+        if (e.target.tagName === 'BUTTON') return;
         isDragging = true;
         offsetX = e.clientX - dragElement.getBoundingClientRect().left;
         offsetY = e.clientY - dragElement.getBoundingClientRect().top;
@@ -257,8 +262,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener("mouseup", () => {
-        isDragging = false;
-        document.body.style.userSelect = '';
+        if (isDragging) {
+            isDragging = false;
+            document.body.style.userSelect = '';
+        }
     });
 
     // --- AI聊天核心逻辑 ---
@@ -266,54 +273,62 @@ document.addEventListener('DOMContentLoaded', function() {
     let isGenerating = false;
     let chatHistory = [];
 
-    // 初始化：现在可以安全地访问DOM了
+    // 【修复】获取所有交互元素，并用 addEventListener 绑定事件
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const stopButton = document.getElementById('stopButton');
+    const exportButton = document.getElementById('exportButton');
+    const clearButton = document.getElementById('clearButton');
+    const chatContainer = document.getElementById('chatContainer');
+
+    sendButton.addEventListener('click', sendRequest);
+    stopButton.addEventListener('click', stopGeneration);
+    exportButton.addEventListener('click', exportHistory);
+    clearButton.addEventListener('click', clearHistory);
+    header.addEventListener('click', toggleChat);
+    userInput.addEventListener('input', autoResize);
+    userInput.addEventListener('keydown', handleKeyDown);
+
+    // 初始化
     loadHistory();
     renderHistory();
 
-    const textarea = document.getElementById('userInput');
-    textarea.addEventListener('input', autoResize);
-    textarea.addEventListener('keydown', handleKeyDown); // 绑定回车发送事件
-
     function autoResize() {
-        textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
+        userInput.style.height = 'auto';
+        userInput.style.height = userInput.scrollHeight + 'px';
     }
 
     function handleKeyDown(event) {
         if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
+            event.preventDefault(); // 阻止默认的回车换行行为
             sendRequest();
         }
     }
 
-    window.stopGeneration = function() { // 暴露到全局，让onclick可以调用
+    function stopGeneration() {
         if (currentStreamController) {
             currentStreamController.abort();
-            addMessage("生成已中断", false);
             console.log("用户中断了生成");
         }
-        disableInput(false);
+        // 注意：addMessage 和 disableInput 会在 sendRequest 的 finally 块中处理
     }
 
-    window.sendRequest = async function() { // 暴露到全局
-        const userInput = document.getElementById('userInput');
+    async function sendRequest() {
         const message = userInput.value.trim();
-        if (!message) return;
+        if (!message || isGenerating) return;
+
+        addMessageToHistory({ role: 'user', content: message });
+        renderHistory(); // 重新渲染以显示用户消息
+        userInput.value = '';
+        autoResize();
 
         try {
             currentStreamController = new AbortController();
             isGenerating = true;
             disableInput(true);
 
-            userInput.value = '';
-            autoResize();
-
-            addMessageToHistory({ role: 'user', content: message });
-            addMessage(message, true);
-
-            const thinkingContainer = createThinkingContainer();
-            const answerContainer = createAnswerContainer();
-            let isThinking = false;
+            // 为AI响应创建并添加一个空的容器
+            const botMessageBubble = addMessage("", false); // 添加一个空的机器人消息气泡
             let fullResponse = '';
 
             const response = await fetch("/receive", {
@@ -328,107 +343,76 @@ document.addEventListener('DOMContentLoaded', function() {
                 signal: currentStreamController.signal
             });
 
+            if (!response.ok) {
+                throw new Error(`网络响应错误: ${response.status} ${response.statusText}`);
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let buffer = '';
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
 
-                for (let i = 0; i < lines.length - 1; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-
-                    try {
-                        const data = JSON.parse(line.replace(/^data: /, ''));
-                        const delta = data.choices[0].delta.content || '';
-
-                        if (delta.includes('<think>')) {
-                            isThinking = true;
-                            thinkingContainer.style.display = 'block';
-                        }
-                        if (isThinking) {
-                            if (delta.includes('</think>')) {
-                                isThinking = false;
-                                const cleanContent = delta.replace(/<\/?think>/g, '');
-                                thinkingContainer.innerHTML += cleanContent;
-                                thinkingContainer.innerHTML = marked.parse(thinkingContainer.innerHTML);
-                                continue;
-                            }
-                            thinkingContainer.innerHTML += delta.replace(/<\/?think>/g, '');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const jsonString = line.substring(6);
+                        if (jsonString === '[DONE]') continue;
+                        try {
+                            const data = JSON.parse(jsonString);
+                            const delta = data.choices[0]?.delta?.content || '';
+                            fullResponse += delta;
+                            botMessageBubble.innerHTML = marked.parse(fullResponse); // 持续更新同一个气泡
                             scrollToBottom();
-                            continue;
+                        } catch (e) {
+                            console.error('解析流式数据错误:', e, '原始数据:', line);
                         }
-
-                        fullResponse += delta;
-                        answerContainer.innerHTML = marked.parse(fullResponse);
-                        scrollToBottom();
-
-                    } catch (e) {
-                        console.error('解析流式数据错误:', e, '原始数据:', line);
                     }
                 }
-                buffer = lines[lines.length - 1];
             }
 
+            // 流结束后更新历史记录
             addMessageToHistory({ role: 'assistant', content: fullResponse });
             saveHistory();
 
+            // 如果使用了MathJax，在这里对最终结果进行渲染
             if (window.MathJax) {
-                MathJax.typesetPromise([answerContainer]).catch(err => console.error('MathJax渲染错误:', err));
+                MathJax.typesetPromise([botMessageBubble]).catch(err => console.error('MathJax渲染错误:', err));
             }
 
         } catch (error) {
             if (error.name === 'AbortError') {
-                console.log('请求被用户中止');
+                addMessage("生成已中断。", false);
             } else {
                 console.error('请求失败:', error);
                 addMessage(`请求失败: ${error.message}`, false);
             }
         } finally {
-            disableInput(false);
             isGenerating = false;
+            disableInput(false);
             currentStreamController = null;
         }
     }
 
     function disableInput(disabled) {
-        const userInput = document.getElementById('userInput');
-        const sendButton = document.getElementById('sendButton');
-        const stopButton = document.getElementById('stopButton');
         userInput.disabled = disabled;
         sendButton.disabled = disabled;
         stopButton.disabled = !disabled;
         if (!disabled) userInput.focus();
     }
 
-    function createThinkingContainer() {
-        const container = document.getElementById('chatContainer');
-        const thinkingDiv = document.createElement('div');
-        thinkingDiv.className = 'thinking-stream';
-        thinkingDiv.style.display = 'none';
-        container.appendChild(thinkingDiv);
-        return thinkingDiv;
-    }
-
-    function createAnswerContainer() {
-        const container = document.getElementById('chatContainer');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message bot-message';
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        messageDiv.appendChild(bubble);
-        container.appendChild(messageDiv);
-        return bubble;
-    }
-
     function addMessageToHistory(message) {
-        chatHistory.push(message);
-        if (chatHistory.length > 50) chatHistory.shift();
+        // 如果最后一条消息是助手消息，则替换它（用于流式传输结束时更新），否则添加新消息
+        const lastMessage = chatHistory[chatHistory.length - 1];
+        if (lastMessage && lastMessage.role === 'assistant' && message.role === 'assistant') {
+            lastMessage.content = message.content;
+        } else {
+            chatHistory.push(message);
+        }
+        if (chatHistory.length > 50) chatHistory.shift(); // 保持历史记录长度
     }
 
     function saveHistory() {
@@ -437,60 +421,65 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function loadHistory() {
         const saved = localStorage.getItem('chatHistory');
-        if (saved) chatHistory = JSON.parse(saved);
+        if (saved) {
+            chatHistory = JSON.parse(saved);
+        }
     }
 
-    window.clearHistory = function() { // 暴露到全局
-        localStorage.removeItem('chatHistory');
+    function clearHistory() {
         chatHistory = [];
+        localStorage.removeItem('chatHistory');
         renderHistory();
     }
 
-    window.exportHistory = function() { // 暴露到全局
+    function exportHistory() {
         const blob = new Blob([JSON.stringify(chatHistory, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `chat_history_${Date.now()}.json`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
 
     function renderHistory() {
-        const container = document.getElementById('chatContainer');
-        container.innerHTML = '';
-        const promises = [];
+        chatContainer.innerHTML = '';
         chatHistory.forEach(msg => {
-            const bubble = addMessage(msg.content, msg.role === 'user');
-            if (msg.role !== 'user' && window.MathJax) {
-                promises.push(MathJax.typesetPromise([bubble]));
-            }
+            addMessage(msg.content, msg.role === 'user');
         });
-        Promise.all(promises).then(() => scrollToBottom()).catch(err => console.error("历史记录渲染错误:", err));
+        if (window.MathJax) {
+            MathJax.typesetPromise(Array.from(chatContainer.children)).catch(err => console.error("历史记录渲染错误:", err));
+        }
     }
 
     function addMessage(content, isUser) {
-        const container = document.getElementById('chatContainer');
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
-        bubble.innerHTML = marked.parse(content);
+        bubble.innerHTML = marked.parse(content || "..."); // 显示...以表示正在加载
+
         messageDiv.appendChild(bubble);
-        container.appendChild(messageDiv);
+        chatContainer.appendChild(messageDiv);
         scrollToBottom();
-        return bubble; // 返回bubble用于MathJax渲染
+        return bubble; // 返回气泡元素以便后续更新
     }
 
     function scrollToBottom() {
-        const container = document.getElementById('chatContainer');
-        container.scrollTop = container.scrollHeight;
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    window.toggleChat = function() { // 暴露到全局
+    function toggleChat(event) {
+        // 防止点击header里的按钮也触发折叠
+        if (event && event.target.tagName === 'BUTTON') return;
+
         const wrapper = document.getElementById("chatWrapper");
         const toggleBtn = wrapper.querySelector(".chat-toggle");
         const footer = wrapper.querySelector(".chat-footer");
+
         wrapper.classList.toggle("collapsed");
         if (wrapper.classList.contains("collapsed")) {
             toggleBtn.textContent = "▲";
@@ -500,9 +489,6 @@ document.addEventListener('DOMContentLoaded', function() {
             footer.style.display = "block";
         }
     }
-
-    // 将原来全局的onclick函数也暴露出来
-    window.toggleAnswer = toggleAnswer;
 });
 </script>
 {% endblock %}
