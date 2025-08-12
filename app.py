@@ -10,14 +10,14 @@ app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # 配置参数
-LM_STUDIO_URL = "http://192.168.5.1:1234/v1/chat/completions"
+LM_STUDIO_URL = "http://127.0.0.1:1234/v1/chat/completions"
 
 # 负载均衡配置
 MODEL_INSTANCES = {
     "deepseek-math-7b-instruct": [
         {
             "name": "deepseek-math-7b-instruct",
-            "host": "http://192.168.5.1:1234",
+            "host": "http://127.0.0.1:1234",
             "endpoint": "/v1/chat/completions",
             "active_requests": 0,
             "response_times": deque(maxlen=10)
