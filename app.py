@@ -381,7 +381,7 @@ def receive_data():
             with requests.post(
                     LM_STUDIO_URL,
                     json={
-                        "model": "deepseek-math", 
+                        "model": "deepseek-math",
                         "messages": messages,
                         "stream": True
                     },
